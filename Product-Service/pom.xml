@@ -32,11 +32,11 @@
 	</properties>
 	<dependencies>
 		<!-- https://mvnrepository.com/artifact/org.springframework.cloud/spring-cloud-starter-netflix-eureka-client -->
-<dependency>
-    <groupId>org.springframework.cloud</groupId>
-    <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
-    <version>4.1.3</version>
-</dependency>
+               <dependency>
+                        <groupId>org.springframework.cloud</groupId>
+                        <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+                        <version>4.1.3</version>
+               </dependency>
 
 		
 		<dependency>
@@ -74,11 +74,11 @@
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter-openfeign</artifactId>
 		</dependency>
-		<dependency>
-			<groupId>com.microservices.cart</groupId>
-			<artifactId>CartServices</artifactId>
-			<version>0.0.1-SNAPSHOT</version>
-		</dependency>
+#		<dependency>
+#			<groupId>com.microservices.cart</groupId>
+#			<artifactId>CartServices</artifactId>
+#			<version>0.0.1-SNAPSHOT</version>
+#		</dependency>
 	</dependencies>
 
 	<build>
