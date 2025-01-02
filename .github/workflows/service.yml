@@ -1,13 +1,11 @@
-
-name: Docker Image CI
+name: Deploy to EC2 🚀
 
 on:
   push:
-    branches: ['dev']
-  pull_request:
-    branches: ['dev']
-  paths:
-    "Service-Registry/**"
+    branches:
+      - "dev"  # This triggers the workflow on push to the 'main' branch
+    paths:
+      - "Service-Registry/**"
 
 jobs:
   build:
