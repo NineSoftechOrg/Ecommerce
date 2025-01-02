@@ -4,53 +4,57 @@ on:
   push:
     branches:
       - "dev"  # This triggers the workflow on push to the 'main' branch
+    paths:
+      - "Service-Registry/**"
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout current branch
-      - name: Checkout current branch ✅
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      # Step 2: Set up SSH key and whitelist EC2 IP address
-      - name: Set up SSH key and whitelist EC2 IP address 🐻‍❄️
+      - name: Log in to Docker Hub
+        uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build the Docker image
+        run: docker build Service-Registry --file Service-Registry/Dockerfile --tag ${{ secrets.DOCKER_USERNAME }}/service-registry
+
+      - name: Docker Push
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/service-registry
+        
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # Step 3: Log in to Amazon ECR
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      # Step 4: Build and tag the Docker image
+      - name: Build, tag, and push Docker image
+        env:
+          ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+          ECR_REPOSITORY: ${{ nkvrajesh/service-registry }}
+          IMAGE_TAG: latest
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+          # Build the Docker image
+          docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
 
-      # Step 3: SSH into EC2 and create the target directory
-      - name: SSH into EC2 and create target directory 🚀
+          # Tag the Docker image
+          docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+          # Push the Docker image to Amazon ECR
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      # Step 5: Verify the Docker image in ECR
+      - name: Verify the Docker image in ECR
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} "
-            mkdir -p /home/ubuntu/Social-Media-Management-Application
-          "
-
-      # Step 4: Copy files to remote server
-      - name: Copy files to remote server 🚙
-        run: |
-          scp -r * ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}:/home/ubuntu/Social-Media-Management-Application/
-
-      # Step 5: SSH into EC2 instance, pull latest code, and deploy Docker container
-      - name: SSH into EC2 and deploy Docker container 🚀
-        run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} "
-            cd /home/ubuntu/Social-Media-Management-Application
-            sudo git pull origin main
-            # Start Redis container
-            sudo docker stop redis || true
-            sudo docker rm redis || true
-            sudo docker run -d --name redis -p 6379:6379 redis
-            sudo docker build -t my-python-app -f Dockerfile .
-            sudo docker stop my-python-app || true
-            sudo docker rm my-python-app || true
-            sudo docker run -d --name my-python-app -p 8000:8000 my-python-app
-          "
-
-      # Step 6: Clean up SSH key
-      - name: Clean up SSH key 🚀
-        if: always()
-        run: rm -f ~/.ssh/id_rsa
+          echo "Docker image pushed to $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
