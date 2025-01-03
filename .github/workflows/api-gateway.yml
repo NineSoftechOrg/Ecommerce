@@ -1,1 +1,60 @@
+name: Deploy to EC2 🚀
 
+on:
+  push:
+    branches:
+      - "dev"  # This triggers the workflow on push to the 'main' branch
+    paths:
+      - "Api-Gateway/**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build the Docker image
+        run: docker build Api-Gateway --file Api-Gateway/Dockerfile --tag ${{ secrets.DOCKER_USERNAME }}/api-gateway
+
+      - name: Docker Push
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/api-gateway
+        
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # Step 3: Log in to Amazon ECR
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      # Step 4: Build and tag the Docker image
+      - name: Build, tag, and push Docker image
+        env:
+          ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+          ECR_REPOSITORY: nkvrajesh/api-gateway
+          IMAGE_TAG: latest
+        run: |
+          # Build the Docker image
+          docker build -t $ECR_REPOSITORY:$IMAGE_TAG -f Api-Gateway/Dockerfile Api-Gateway
+
+          # Tag the Docker image
+          docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+          # Push the Docker image to Amazon ECR
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      # Step 5: Verify the Docker image in ECR
+      - name: Verify the Docker image in ECR
+        run: |
+          echo "Docker image pushed to $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
